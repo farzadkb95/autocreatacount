@@ -1,0 +1,357 @@
+<?php
+
+/*
+ * Plugin Name:hamiblogger: Wordpress Mobile Number Signup and Login
+ * Description: Expand your website dimensions by providing signup and login using mobile number. User can register themself with just a mobile number.
+ * Version: 1.1
+ * Plugin URI: https://hamimohtava.com
+ * Author URI: https://www.tarrahiweb.com/
+ * Author: farzadbeheshti
+ * Text Domain: hami
+ * Requires PHP: 5.5
+ * Domain Path: /languages
+ */ 
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+ add_filter('jpeg_quality', function($arg){return 80;});
+
+ 
+
+function action_woocommerce_before_calculate_totals( $cart ) {
+    if ( is_admin() && ! defined( 'DOING_AJAX' ) )
+        return;
+
+    if ( did_action( 'woocommerce_before_calculate_totals' ) >= 2 )
+        return;
+    
+    // Get cart
+    $get_cart = $cart->get_cart();
+/
+    // Solution for PHP 7.3 and up
+    foreach ( $get_cart as $cart_item_key => $cart_item ) {
+        // NOT last element
+        if ( $cart_item_key !== array_key_last( $get_cart ) ) {
+            // Remove a cart item
+            $cart->remove_cart_item( $cart_item_key );
+        }
+    }
+}
+add_action( 'woocommerce_before_calculate_totals', 'action_woocommerce_before_calculate_totals', 10, 1 );
+
+function my_custom_login_logo() {
+echo '<style type="text/css">
+h1 a {background-image:url(https://www.hamimohtava.com/wp-content/uploads/2020/10/hami-logo.png) !important; margin:0 auto;}
+</style>';
+}
+add_filter( 'login_head', 'my_custom_login_logo' );
+
+//change submit text in woo checkout 
+add_filter( 'woocommerce_order_button_text', 'misha_custom_button_text' );
+ 
+function misha_custom_button_text( $button_text ) {
+   return '  همین حالا ثبت نام می کنم '; // new text is here 
+}
+//gravityyyyyyyyyyyyyyyyyyyyyyyyyy validation massage 
+/*add_filter( 'validation_error', 'validate_msgfr', 10, 2 );
+function validate_msgfr ( $message  ) {
+   return ' کد تائید را وارد کنید  '; // new text is here 
+}
+ */
+
+ // Remove variation stock data from product page display
+function sww_wc_remove_variation_stock_display( $data ) {
+unset( $data['availability_html'] );
+return $data;
+}
+add_filter( 'woocommerce_available_variation', 'sww_wc_remove_variation_stock_display', 99 );
+
+/*unset checkout*/
+add_filter( 'woocommerce_checkout_fields' , 'quadlayers_remove_checkout_fields' ); 
+
+function quadlayers_remove_checkout_fields( $fields ) { 
+
+ unset($fields['billing']['billing_company']);
+unset($fields['billing']['billing_address_1']);
+unset($fields['billing']['billing_address_2']);
+unset($fields['billing']['billing_city']);
+unset($fields['billing']['billing_postcode']);
+unset($fields['billing']['billing_country']);
+unset($fields['billing']['billing_state']);
+ unset($fields['order']['order_comments']);
+ return $fields; 
+}
+/*---------------direct to check out */ 
+add_filter('add_to_cart_redirect', 'lw_add_to_cart_redirect');
+function lw_add_to_cart_redirect() {
+ global $woocommerce;
+ $lw_redirect_checkout = $woocommerce->cart->get_checkout_url();
+ return $lw_redirect_checkout;
+}
+ 
+
+add_filter('woocommerce_cart_product_cannot_add_another_message', 'dont_display');
+function dont_display(){
+	?><style>.woocommerce-error {display:none!important;}</style><?php	
+     $checkout_url = WC()->cart->get_checkout_url();
+  ?>
+  <script>
+  location = '<?=$checkout_url?>';
+  </script>
+  <?php 
+    return $massage;
+
+}
+
+add_filter('auth_cookie_expiration', 'my_expiration_filter', 99, 3);
+function my_expiration_filter($seconds, $user_id, $remember){
+
+    //if "remember me" is checked;
+    if ( $remember ) {
+        //WP defaults to 2 weeks;
+        $expiration = 14*24*60*60; //UPDATE HERE;
+    } else {
+        //WP defaults to 48 hrs/2 days;
+        $expiration = 8*24*60*60; //UPDATE HERE;
+    }
+
+    //http://en.wikipedia.org/wiki/Year_2038_problem
+    if ( PHP_INT_MAX - time() < $expiration ) {
+        //Fix to a little bit earlier!
+        $expiration =  PHP_INT_MAX - time() - 5;
+    }
+
+    return $expiration;
+}
+ 
+ function webroom_woocommerce_coupon_links(){
+
+	// Bail if WooCommerce or sessions aren't available.
+
+	if (!function_exists('WC') || !WC()->session) {
+		return;
+	}
+
+	/**
+	 * Filter the coupon code query variable name.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $query_var Query variable name.
+	 */
+	$query_var = apply_filters('woocommerce_coupon_links_query_var', 'coupon_code');
+
+	// Bail if a coupon code isn't in the query string.
+
+	if (empty($_GET[$query_var])) {
+		return;
+	}
+
+	// Set a session cookie to persist the coupon in case the cart is empty.
+
+	WC()->session->set_customer_session_cookie(true);
+
+	// Apply the coupon to the cart if necessary.
+
+	if (!WC()->cart->has_discount($_GET[$query_var])) {
+
+		// WC_Cart::add_discount() sanitizes the coupon code.
+
+		WC()->cart->add_discount($_GET[$query_var]);
+	}
+}
+add_action('wp_loaded', 'webroom_woocommerce_coupon_links', 30);
+add_action('woocommerce_add_to_cart', 'webroom_woocommerce_coupon_links');
+
+//woocommerce remove zero 
+  
+ 
+   
+/////auto login user after order submitted
+ function action_woocommerce_thankyou( $order_id ) {
+    // Determines whether the current visitor is a logged in user.
+    if ( is_user_logged_in() ) return;
+
+    // Get $order object
+    $order = wc_get_order( $order_id );
+    	$usernamekb = '98'. ltrim($order->get_billing_phone(), "0");
+
+    // Get the user email from the order
+    $order_email = $order->get_billing_email();
+
+     // Check if there are any users with the billing email as user or email
+	 	if(empty($order_email))
+{
+ 	   $addmailkb='@hamimohtava.com';
+        $order_email=$usernamekb . $addmailkb;
+	   update_post_meta( $order_id, '_billing_email',$order_email  );
+
+
+}
+    $email = email_exists( $order_email );  
+    $user = username_exists( $usernamekb );
+   
+    // If the UID is null, then it's a guest checkout (new user)
+    if ( $user == false && $email == false ) {
+        // Random password with 12 chars
+        $random_password = wp_generate_password();
+        
+        // Firstname
+        $first_name = $order->get_billing_first_name();
+        
+        // Lastname
+        $last_name = $order->get_billing_last_name();
+        
+        // Role
+        $role = 'customer';
+   
+        // Create new user with email as username, newly created password and userrole          
+        $user_id = wp_insert_user(
+            array(
+                'user_email' => $order_email,
+                'user_login' => $usernamekb,
+                'user_pass'  => $random_password,
+                'first_name' => $first_name,
+                'last_name'  => $last_name,
+                'role'       => $role,
+            )
+        );
+        
+        // Get all WooCommerce emails Objects from WC_Emails Object instance
+        $emails = WC()->mailer()->get_emails();
+
+        // Send WooCommerce "Customer New Account" email notification with the password
+        $emails['WC_Email_Customer_New_Account']->trigger( $user_id, $random_password, true );
+
+        // (Optional) WC guest customer identification
+        //update_user_meta( $user_id, 'guest', 'yes' );
+
+        // User's billing data
+       
+        update_user_meta( $user_id, 'billing_email', $order_email );
+		            update_post_meta( $user_id, '_billing_email', '$order_email' );
+		            update_user_meta( $user_id, '_billing_email', '$order_email' );
+
+        update_user_meta( $user_id, 'billing_first_name', $order->get_billing_first_name() );
+        update_user_meta( $user_id, 'billing_last_name',  $order->get_billing_last_name() );
+				$leadingfarzad = ltrim($order->get_billing_phone(), "0"); 
+
+		$number_for_creat_user = '+98'.$leadingfarzad;
+        update_user_meta( $user_id, 'billing_phone', $order->get_billing_phone() );
+		update_user_meta($user_id, 'digits_phone', $number_for_creat_user);
+
+		// $countrycode2='+98';
+        //     update_user_meta($user_id, 'digt_countrycode', $countrycode2);
+
+		update_user_meta($user_id, 'digits_phone_no', $leadingfarzad );
+
+        update_user_meta( $user_id, 'billing_postcode', $order->get_billing_postcode() );
+        update_user_meta( $user_id, 'billing_state', $order->get_billing_state() );
+        // User's shipping data
+        update_user_meta( $user_id, 'shipping_address_1', $order->get_shipping_address_1() );
+        update_user_meta( $user_id, 'shipping_address_2', $order->get_shipping_address_2() );
+        update_user_meta( $user_id, 'shipping_city', $order->get_shipping_city() );
+        update_user_meta( $user_id, 'shipping_company', $order->get_shipping_company() );
+        update_user_meta( $user_id, 'shipping_country', $order->get_shipping_country() );
+        update_user_meta( $user_id, 'shipping_first_name', $order->get_shipping_first_name() );
+        update_user_meta( $user_id, 'shipping_last_name', $order->get_shipping_last_name() );
+        update_user_meta( $user_id, 'shipping_method', $order->get_shipping_method() );
+        update_user_meta( $user_id, 'shipping_postcode', $order->get_shipping_postcode() );
+        update_user_meta( $user_id, 'shipping_state', $order->get_shipping_state() );
+
+        // Link past orders to this newly created customer
+        wc_update_new_customer_past_orders( $user_id );
+
+        // Auto login
+        wp_set_current_user( $user_id );
+        wp_set_auth_cookie( $user_id );
+    }  
+}
+add_action( 'woocommerce_thankyou', 'action_woocommerce_thankyou', 10, 1 ); 
+
+function filter_woocommerce_thankyou_order_received_text( $str, $order ) {
+    // Determines whether the current visitor is a logged in user.
+    if ( is_user_logged_in() ) return $str;
+    
+    // Get the user email from the order
+    $order_email = $order->get_billing_email();
+    	 	if(empty($order_email))
+{
+ 	   $addmailkb='@hamimohtava.com';
+        $order_email=$usernamekb . $addmailkb;
+
+}
+    	$usernamekb = '98'. ltrim($order->get_billing_phone(), "0");
+
+    // Check if there are any users with the billing email as user or email
+    $email = email_exists( $order_email );  
+    $user = username_exists( $usernamekb );
+
+    // If the UID is null, then it's a guest checkout (new user)
+    if ( $user == false && $email == false ) {
+        // Link
+        $link = get_permalink( get_option( 'woocommerce_myaccount_page_id' ) );
+
+
+
+// 		$orderr = wc_get_order( $order_id );
+// $user = $order->get_user();
+// $user_idd = $order->get_user_id(); 
+
+		            wc_update_new_customer_past_orders( $user_id );
+
+
+        // Format
+        $format_link = '<a href="' . $link . '">logged in</a>';
+
+        // Append to orginal string
+        $str .= sprintf( __( ' An account has been automatically created for you and you are now %s. You will receive an email about this.', 'woocommerce' ), $format_link ); 
+    }       
+
+    return $str;
+}
+add_filter( 'woocommerce_thankyou_order_received_text', 'filter_woocommerce_thankyou_order_received_text', 10, 2 );
+
+
+ //leading zero remove 
+
+
+ add_action('user_register', 'removezero', 10, 1);
+function removezero( $user_id ) {
+    if (isset($_POST['billing_phone'])) {
+       update_user_meta( $user_id, 'billing_phone', $_POST['billing_phone'] = preg_replace('/^0/', '', $_POST['billing_phone']));
+    }
+}
+add_action( 'woocommerce_thankyou', 'custom_woocommerce_auto_complete_order',10,1);
+function custom_woocommerce_auto_complete_order( $order_id ) {
+    if ( ! $order_id ) {
+        return;
+    }
+
+    $order = wc_get_order( $order_id );
+    $order->update_status( 'Processing' );
+}
+add_action( 'woocommerce_thankyou', 'farzadlmsdd',99,1);
+function farzadlmsdd( $order_id ) {
+    if ( ! $order_id ) {
+        return;
+    }
+
+    $order = wc_get_order( $order_id );
+    $order->update_status( 'completed' );
+}
+
+
+
+ add_filter( 'woocommerce_billing_fields', 'wc_npr_filter_phone', 10, 1 
+);
+function wc_npr_filter_phone( $address_fields ) {
+ 
+    $address_fields['billing_email']['required'] = false;
+    
+    return $address_fields;
+
+}
+
+  
